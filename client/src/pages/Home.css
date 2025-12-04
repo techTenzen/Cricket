@@ -1,0 +1,292 @@
+/* Home page theme styles */
+.home {
+  background-color: var(--bg);
+  color: var(--ink);
+}
+
+.hero-stadium {
+  background-color: var(--bg-secondary);
+}
+
+.value-props-section {
+  background-color: var(--bg-hover);
+  border-color: var(--line);
+}
+
+.categories-section {
+  background-color: var(--bg);
+}
+
+.featured-collections {
+  background-color: var(--bg-hover);
+}
+
+.bestsellers-section {
+  background-color: var(--bg-secondary);
+}
+
+.brands-section {
+  background-color: var(--bg);
+  border-color: var(--line);
+}
+
+.testimonials-section {
+  background-color: var(--bg-secondary);
+}
+
+.newsletter-section {
+  background-color: var(--bg-hover);
+  border-color: var(--line);
+}
+
+.tips-news-section {
+  background-color: var(--bg);
+}
+
+/* Text colors */
+.section-title {
+  color: var(--ink) !important;
+}
+
+.section-text {
+  color: var(--text) !important;
+}
+
+.section-muted {
+  color: var(--muted) !important;
+}
+
+/* Card backgrounds */
+.card-bg {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+/* Product cards */
+.product-card {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+  color: var(--ink) !important;
+}
+
+.product-title {
+  color: var(--ink) !important;
+}
+
+.product-price {
+  color: var(--brand) !important;
+}
+
+/* Featured Collections */
+.featured-collections .group {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+.featured-collections h3 {
+  color: var(--ink) !important;
+}
+
+.featured-collections p {
+  color: var(--text) !important;
+}
+
+/* Size Guide */
+.size-guide-section {
+  background-color: var(--bg) !important;
+}
+
+.size-guide-section h2 {
+  color: var(--ink) !important;
+}
+
+.size-guide-section p {
+  color: var(--text) !important;
+}
+
+.size-guide-section table {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+.size-guide-section th {
+  background-color: var(--bg-secondary) !important;
+  color: var(--ink) !important;
+}
+
+.size-guide-section td {
+  color: var(--text) !important;
+  border-color: var(--line) !important;
+}
+
+/* Tips & News */
+.tips-news-section article {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+}
+
+.tips-news-section h3 {
+  color: var(--ink) !important;
+}
+
+.tips-news-section p {
+  color: var(--text) !important;
+}
+
+/* Brand Scroller */
+.brands-section {
+  background-color: var(--bg) !important;
+  border-color: var(--line) !important;
+}
+
+.brands-section span {
+  color: var(--text) !important;
+}
+
+/* Footer */
+footer {
+  background-color: var(--bg) !important;
+  border-color: var(--line) !important;
+  color: var(--text) !important;
+}
+
+footer h3 {
+  color: var(--ink) !important;
+}
+
+footer a {
+  color: var(--text) !important;
+}
+
+footer a:hover {
+  color: var(--brand) !important;
+}
+
+/* Newsletter */
+.newsletter-section h2 {
+  color: var(--ink) !important;
+}
+
+.newsletter-section p {
+  color: var(--text) !important;
+}
+
+.newsletter-section input {
+  background-color: var(--card-bg) !important;
+  border-color: var(--card-border) !important;
+  color: var(--ink) !important;
+}
+
+.newsletter-section input::placeholder {
+  color: var(--muted) !important;
+}
+
+/* Override hardcoded Tailwind classes */
+.bg-white {
+  background-color: var(--bg) !important;
+}
+
+.bg-gray-50 {
+  background-color: var(--bg-hover) !important;
+}
+
+.bg-gray-100 {
+  background-color: var(--bg-hover) !important;
+}
+
+.bg-gray-900 {
+  background-color: var(--bg-secondary) !important;
+}
+
+.text-gray-900 {
+  color: var(--ink) !important;
+}
+
+.text-gray-600 {
+  color: var(--text) !important;
+}
+
+.text-white {
+  color: var(--ink) !important;
+}
+
+.border-gray-200 {
+  border-color: var(--line) !important;
+}
+
+.border-gray-300 {
+  border-color: var(--line) !important;
+}
+
+.shadow-lg {
+  box-shadow: var(--shadow) !important;
+}
+
+.shadow-xl {
+  box-shadow: var(--shadow) !important;
+}
+
+/* Category text colors */
+.categories-section h3 {
+  color: var(--category-text) !important;
+}
+
+.categories-section p {
+  color: var(--category-text) !important;
+}
+
+/* Featured collection buttons */
+.featured-collections .group/btn {
+  background-color: white !important;
+  color: black !important;
+  border-color: white !important;
+}
+
+.featured-collections .group/btn:hover {
+  background-color: var(--brand) !important;
+  color: black !important;
+}
+
+/* Bestseller carousel arrows */
+.bestsellers-section button svg {
+  color: var(--brand) !important;
+}
+
+/* Product card badges */
+.product-card .badge {
+  color: var(--brand) !important;
+}
+
+/* Size guide pro tip */
+.size-guide-section .text-amber-700 {
+  color: var(--brand) !important;
+}
+
+.size-guide-section p {
+  color: var(--ink) !important;
+}
+
+
+
+/* Hero section overlay - remove shadow in light theme */
+[data-theme="light"] .hero-stadium .bg-black\/70 {
+  background: transparent !important;
+}
+
+[data-theme="dark"] .hero-stadium .bg-black\/70 {
+  background: rgba(0,0,0,0.4) !important;
+}
+
+/* Featured collection text colors - gold in light theme */
+[data-theme="light"] .featured-collections .text-white {
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .featured-collections .text-white {
+  color: white !important;
+}
+
+/* Featured collection gradients - white shadow in light, sunlight in dark */
+[data-theme="light"] .featured-collections .bg-gradient-to-r {
+  background: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.7)) !important;
+}

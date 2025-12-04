@@ -1,0 +1,64 @@
+/* Global Theme Variables */
+:root {
+  --radius: 10px;
+  --transition: all 0.3s ease;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --brand: #0ea5e9; /* Sky blue */
+  --brand-2: #0284c7;
+  --accent: #ef4444; /* Red for Sale */
+  --primary: #3b82f6; /* Blue for Primary actions */
+  --primary-2: #2563eb;
+  --ink: #1e293b; /* Dark text */
+  --text: #475569; /* Gray text */
+  --muted: #94a3b8;
+  --line: #e2e8f0; /* Light border */
+  --bg: #ffffff; /* White background */
+  --bg-secondary: #ffffff; /* Light secondary background */
+  --bg-hover: #f1f5f9; /* Light hover background */
+  --bg-fill: #f1f5f9; /* Light search bar background */
+  --shadow: 0 10px 30px rgba(0,0,0,.08);
+  --shadow-small: 0 4px 12px rgba(0,0,0,.05);
+  --ring: rgba(59,130,246,.45);
+  --card-bg: #ffffff;
+  --card-border: #e5e7eb;
+  --category-text: #fbbf24; /* Gold for category text */
+}
+
+/* Dark Theme - Sunrise inspired */
+[data-theme="dark"] {
+  --brand: #fbbf24; /* Sunrise gold */
+  --brand-2: #f59e0b; /* Deeper gold */
+  --accent: #f97316; /* Sunrise orange for Sale */
+  --primary: #fbbf24; /* Gold for Primary actions */
+  --primary-2: #f59e0b;
+  --ink: #f8fafc; /* Light text */
+  --text: #e2e8f0; /* Light gray text */
+  --muted: #94a3b8;
+  --line: #374151; /* Dark border */
+  --bg: #1f2937; /* Dark greyish background */
+  --bg-secondary: #111827; /* Darker secondary background */
+  --bg-hover: #374151; /* Darker hover background */
+  --bg-fill: #374151; /* Dark search bar background */
+  --shadow: 0 10px 30px rgba(0,0,0,.4);
+  --shadow-small: 0 4px 12px rgba(0,0,0,.3);
+  --ring: rgba(251,191,36,.45);
+  --card-bg: #374151;
+  --card-border: #4b5563;
+  --category-text: #fbbf24; /* Gold for category text */
+  --sunlight-gradient: linear-gradient(to right, rgba(251,191,36,0.8) 0%, rgba(251,191,36,0.4) 50%, transparent 100%);
+}
+
+/* Global body styling */
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  transition: var(--transition);
+}
+
+/* Smooth theme transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
