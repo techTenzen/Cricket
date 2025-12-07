@@ -77,6 +77,25 @@
   color: var(--brand) !important;
 }
 
+/* ProductCard theme overrides */
+[data-theme="light"] .product-card {
+  background-color: white !important;
+  color: black !important;
+}
+
+[data-theme="dark"] .product-card {
+  background-color: var(--bg-secondary) !important;
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="light"] .product-card .product-title {
+  color: black !important;
+}
+
+[data-theme="dark"] .product-card .product-title {
+  color: var(--accent-primary) !important;
+}
+
 /* Featured Collections */
 .featured-collections .group {
   background-color: var(--card-bg) !important;

@@ -1,0 +1,137 @@
+/* Global theme overrides for all pages */
+
+/* Light theme - no changes needed (white bg, black text) */
+
+/* Dark theme - gold text for black/dark text, keep white text white */
+[data-theme="dark"] {
+  /* Change all black/dark gray text to gold */
+  color: var(--accent-primary);
+}
+
+[data-theme="dark"] .text-gray-900,
+[data-theme="dark"] .text-gray-800,
+[data-theme="dark"] .text-gray-700,
+[data-theme="dark"] .text-gray-600,
+[data-theme="dark"] .text-gray-500,
+[data-theme="dark"] .text-gray-400,
+[data-theme="dark"] .text-gray-300,
+[data-theme="dark"] .text-black {
+  color: #f5f5dc !important; /* Beige color for better visibility */
+}
+
+/* Keep white text white in dark theme */
+[data-theme="dark"] .text-white {
+  color: white !important;
+}
+
+/* Dark theme backgrounds */
+[data-theme="dark"] body,
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .bg-gray-50,
+[data-theme="dark"] .bg-gray-100 {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Navbar in dark theme */
+[data-theme="dark"] .site-header {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Footer in dark theme */
+[data-theme="dark"] footer {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Cards in dark theme */
+[data-theme="dark"] .bg-white {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Buttons - keep their original colors */
+[data-theme="dark"] button.bg-indigo-600,
+[data-theme="dark"] button.bg-blue-600,
+[data-theme="dark"] button.bg-green-600,
+[data-theme="dark"] button.bg-red-600 {
+  color: white !important;
+}
+
+/* Links in dark theme */
+[data-theme="dark"] a {
+  color: #f5f5dc;
+}
+
+[data-theme="dark"] a:hover {
+  color: var(--brand);
+}
+
+/* Headings in dark theme */
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6 {
+  color: #f5f5dc !important;
+}
+
+/* Paragraphs in dark theme */
+[data-theme="dark"] p {
+  color: #f5f5dc;
+}
+
+/* Spans and divs in dark theme */
+[data-theme="dark"] span,
+[data-theme="dark"] div {
+  color: inherit;
+}
+
+/* Labels in dark theme */
+[data-theme="dark"] label {
+  color: #f5f5dc !important;
+}
+
+/* Input fields in dark theme */
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: var(--bg-hover) !important;
+  color: #f5f5dc !important;
+  border-color: var(--card-border) !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #d4af37 !important;
+  opacity: 0.7;
+}
+
+/* Tables in dark theme */
+[data-theme="dark"] table {
+  background-color: var(--bg-secondary) !important;
+}
+
+[data-theme="dark"] th,
+[data-theme="dark"] td {
+  color: #f5f5dc !important;
+  border-color: var(--card-border) !important;
+}
+
+/* Product listing specific */
+[data-theme="dark"] .product-card,
+[data-theme="dark"] .product-card * {
+  color: #f5f5dc !important;
+}
+
+[data-theme="dark"] .product-card .product-title {
+  color: var(--accent-primary) !important;
+}
+
+[data-theme="dark"] .product-card .product-price {
+  color: var(--brand) !important;
+}
+
+/* Borders in dark theme */
+[data-theme="dark"] .border-gray-200,
+[data-theme="dark"] .border-gray-300 {
+  border-color: var(--card-border) !important;
+}

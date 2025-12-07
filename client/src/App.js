@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { useAppDispatch, useAppSelector } from './hooks/useAppDispatch';
 import { getCurrentUser, logout } from './store/slices/authSlice';
@@ -7,6 +7,7 @@ import { fetchCart, resetCart } from './store/slices/cartSlice';
 import { ThemeProvider } from './context/ThemeContext';
 import 'react-toastify/dist/ReactToastify.css';
 import './styles/theme.css';
+import './styles/global-theme.css';
 
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -33,7 +34,17 @@ import ScrollToTop from './components/ScrollToTop';
 
 function App() {
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const { token, isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
+
+  // Add/remove home-page class based on route
+  useEffect(() => {
+    if (location.pathname === '/') {
+      document.body.classList.add('home-page');
+    } else {
+      document.body.classList.remove('home-page');
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     if (token && !isAuthenticated) {

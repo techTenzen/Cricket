@@ -254,8 +254,9 @@ const ProductModal = ({ product, brands, onClose }) => {
   };
   
   const updateSizeVariant = (index, field, value) => {
-    const updated = [...sizeVariants];
-    updated[index][field] = value;
+    const updated = sizeVariants.map((variant, i) => 
+      i === index ? { ...variant, [field]: value } : variant
+    );
     setSizeVariants(updated);
   };
 
