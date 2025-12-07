@@ -130,6 +130,19 @@
   color: var(--brand) !important;
 }
 
+/* Exception: Keep add-to-cart button with its own colors */
+[data-theme="dark"] .product-card .add-to-cart-btn,
+[data-theme="dark"] .product-card .add-to-cart-btn * {
+  color: #111827 !important;
+  background: #f9fafb !important;
+}
+
+[data-theme="dark"] .product-card .add-to-cart-btn:hover:not(:disabled),
+[data-theme="dark"] .product-card .add-to-cart-btn:hover:not(:disabled) * {
+  color: #111827 !important;
+  background: #f9fafb !important;
+}
+
 /* Borders in dark theme */
 [data-theme="dark"] .border-gray-200,
 [data-theme="dark"] .border-gray-300 {

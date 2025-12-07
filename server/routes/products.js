@@ -35,10 +35,12 @@ router.post('/upload-images', adminAuth, (req, res, next) => {
 // Get all products
 router.get('/', async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 12 } = req.query;
+    const { category, search, brand, minPrice, maxPrice, minRating, onSale, inStock, sortBy, page = 1, limit = 12 } = req.query;
     const query = {};
     
     if (category) query.category = category;
+    if (brand) query.brand = brand;
+    
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -46,11 +48,47 @@ router.get('/', async (req, res) => {
         { brand: { $regex: search, $options: 'i' } }
       ];
     }
+    
+    // Price range filter
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = parseFloat(minPrice);
+      if (maxPrice) query.price.$lte = parseFloat(maxPrice);
+    }
+    
+    // Rating filter
+    if (minRating) {
+      query.rating = { $gte: parseFloat(minRating) };
+    }
+    
+    // On sale filter (has oldPrice and oldPrice > price)
+    if (onSale === 'true') {
+      query.oldPrice = { $exists: true, $gt: 0 };
+      query.$expr = { $gt: ['$oldPrice', '$price'] };
+    }
+    
+    // In stock filter
+    if (inStock === 'true') {
+      query.stock = { $gt: 0 };
+    }
+    
+    // Sorting
+    let sort = { createdAt: -1 };
+    if (sortBy) {
+      switch(sortBy) {
+        case 'price-low': sort = { price: 1 }; break;
+        case 'price-high': sort = { price: -1 }; break;
+        case 'name-asc': sort = { name: 1 }; break;
+        case 'name-desc': sort = { name: -1 }; break;
+        case 'rating': sort = { rating: -1 }; break;
+        case 'newest': sort = { createdAt: -1 }; break;
+      }
+    }
 
     const products = await Product.find(query)
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
+      .sort(sort);
 
     const total = await Product.countDocuments(query);
     
@@ -61,6 +99,7 @@ router.get('/', async (req, res) => {
       total
     });
   } catch (error) {
+    console.error('Products fetch error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Filter } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
@@ -11,6 +11,9 @@ const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { products, totalPages, currentPage, total, isLoading, filters } = useAppSelector((state) => state.products);
   const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const [localMinPrice, setLocalMinPrice] = useState(filters.minPrice || 0);
+  const [localMaxPrice, setLocalMaxPrice] = useState(filters.maxPrice || 1000);
+  const [debounceTimer, setDebounceTimer] = useState(null);
 
   const categories = [
     'bats', 'balls', 'pads', 'gloves', 'helmets', 'shoes', 'clothing', 'accessories', 'stumps'
@@ -30,27 +33,47 @@ const Products = () => {
   };
 
   useEffect(() => {
-    const category = searchParams.get('category') || '';
-    const search = searchParams.get('search') || '';
-    const page = parseInt(searchParams.get('page')) || 1;
+    const params = {
+      category: searchParams.get('category') || '',
+      search: searchParams.get('search') || '',
+      brand: searchParams.get('brand') || '',
+      minPrice: searchParams.get('minPrice') || '',
+      maxPrice: searchParams.get('maxPrice') || '',
+      minRating: searchParams.get('minRating') || '',
+      onSale: searchParams.get('onSale') || '',
+      inStock: searchParams.get('inStock') || '',
+      sortBy: searchParams.get('sortBy') || '',
+      page: parseInt(searchParams.get('page')) || 1
+    };
     
-    const params = { category, search, page };
-    
-    // Set filters and fetch products directly
     dispatch(setFilters(params));
     dispatch(fetchProducts(params));
   }, [searchParams, dispatch]);
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value, page: 1 };
-    dispatch(setFilters(newFilters));
     
     const params = new URLSearchParams();
     Object.entries(newFilters).forEach(([k, v]) => {
-      if (v) params.set(k, v);
+      if (v !== '' && v !== false && v !== null && v !== undefined) {
+        params.set(k, v);
+      }
     });
     setSearchParams(params);
   };
+
+  const handlePriceChange = useCallback((key, value) => {
+    if (key === 'minPrice') setLocalMinPrice(value);
+    if (key === 'maxPrice') setLocalMaxPrice(value);
+    
+    if (debounceTimer) clearTimeout(debounceTimer);
+    
+    const timer = setTimeout(() => {
+      handleFilterChange(key, value);
+    }, 300);
+    
+    setDebounceTimer(timer);
+  }, [debounceTimer]);
 
 
 
@@ -59,7 +82,7 @@ const Products = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+  <div className="w-[90%] mx-auto px-4 py-8">
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Filters Sidebar */}
         <div className="lg:w-1/4">
@@ -134,26 +157,74 @@ const Products = () => {
             <div className="mb-6">
               <label className="block text-sm font-medium mb-2">Price Range (GBP)</label>
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={filters.minPrice || ''}
-                  onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={filters.maxPrice || ''}
-                  onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                />
+                <div>
+                  <label className="text-xs text-gray-600">Min</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={localMinPrice}
+                    onChange={(e) => {
+                      const val = Math.min(1000, Math.max(0, e.target.value || 0));
+                      setLocalMinPrice(val);
+                      handlePriceChange('minPrice', val);
+                    }}
+                    className="w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-600">Max</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={localMaxPrice}
+                    onChange={(e) => {
+                      const val = Math.min(1000, Math.max(0, e.target.value || 0));
+                      setLocalMaxPrice(val);
+                      handlePriceChange('maxPrice', val);
+                    }}
+                    className="w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="1000"
+                  />
+                </div>
               </div>
             </div>
             
-            {/* Stock Filter */}
+            {/* Rating Filter */}
             <div className="mb-6">
-              <label className="flex items-center">
+              <label className="block text-sm font-medium mb-2">Minimum Rating</label>
+              <select
+                value={filters.minRating || ''}
+                onChange={(e) => handleFilterChange('minRating', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">All Ratings</option>
+                {[5, 4, 3, 2, 1].map(rating => (
+                  <option key={rating} value={rating}>
+                    {rating} {'★'.repeat(rating)} & Up
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Discount Filter */}
+            <div className="mb-6">
+              <label className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                <input
+                  type="checkbox"
+                  checked={filters.onSale || false}
+                  onChange={(e) => handleFilterChange('onSale', e.target.checked)}
+                  className="mr-2"
+                />
+                <span className="text-sm font-medium">On Sale Only</span>
+              </label>
+            </div>
+
+            {/* In Stock Filter */}
+            <div className="mb-6">
+              <label className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
                 <input
                   type="checkbox"
                   checked={filters.inStock || false}
@@ -163,7 +234,7 @@ const Products = () => {
                 <span className="text-sm font-medium">In Stock Only</span>
               </label>
             </div>
-
+            
             {/* Clear Filters */}
             <button
               onClick={() => {

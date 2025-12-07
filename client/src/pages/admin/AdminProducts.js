@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { useAppDispatch, useAppSelector } from '../../hooks/useAppDispatch';
 import { fetchProducts, deleteProduct, createProduct, updateProduct } from '../../store/slices/productSlice';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { getPrimaryOptions, getSizeOptions } from '../../utils/sizeOptions';
 
 const AdminProducts = () => {
   const dispatch = useAppDispatch();
@@ -92,7 +93,7 @@ const AdminProducts = () => {
           </select>
           <button
             onClick={() => setShowBrandModal(true)}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+            className="bg-white text-gray-900 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50"
           >
             Manage Brands
           </button>
@@ -138,24 +139,32 @@ const AdminProducts = () => {
                     {product.sizeVariants ? (
                       <div className="space-y-1">
                         {product.sizeVariants.map((variant, idx) => (
-                          <div key={idx} className="text-xs">
+                          <div key={idx} className="text-xs flex items-center gap-1">
                             <span className="font-medium">{variant.size}:</span>
-                            <span className={`ml-1 px-1 py-0.5 rounded ${
+                            <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded font-semibold ${
                               variant.stock > 10 ? 'bg-green-100 text-green-800' :
                               variant.stock > 0 ? 'bg-yellow-100 text-yellow-800' :
                               'bg-red-100 text-red-800'
-                            }`}>
+                            }`} style={{ 
+                              color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#000' : undefined,
+                              width: '28px',
+                              textAlign: 'center'
+                            }}>
                               {variant.stock}
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-semibold rounded-full ${
                         product.stock > 10 ? 'bg-green-100 text-green-800' :
                         product.stock > 0 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
-                      }`}>
+                      }`} style={{ 
+                        color: document.documentElement.getAttribute('data-theme') === 'dark' ? '#000' : undefined,
+                        width: '32px',
+                        textAlign: 'center'
+                      }}>
                         {product.stock || 0}
                       </span>
                     )}
@@ -233,17 +242,6 @@ const ProductModal = ({ product, brands, onClose }) => {
   const [hoverImageIndex, setHoverImageIndex] = useState(product?.hoverImageIndex || 1);
 
   const categories = ['bats', 'balls', 'pads', 'gloves', 'helmets', 'shoes', 'clothing', 'accessories', 'stumps'];
-  
-  const getSizeOptions = (category) => {
-    switch(category) {
-      case 'bats': return ['4', '5', '6', 'Full'];
-      case 'pads': case 'abdominal-guard': case 'thigh-pad': return ['Adult', 'S.Adult'];
-      case 'helmets': return ['XS', 'S', 'M', 'L', 'XL'];
-      case 'shoes': return ['UK-8', 'UK-9', 'UK-10'];
-      case 'stumps': return ['Standard'];
-      default: return ['One Size'];
-    }
-  };
   
   const addSizeVariant = () => {
     setSizeVariants([...sizeVariants, { size: '', stock: 0 }]);
@@ -465,9 +463,24 @@ const ProductModal = ({ product, brands, onClose }) => {
                   required
                 >
                   <option value="">Select Size</option>
-                  {getSizeOptions(formData.category).map(size => (
-                    <option key={size} value={size}>{size}</option>
-                  ))}
+                  {/* Show all possible sizes for the category */}
+                  {(() => {
+                    const primaryOpts = getPrimaryOptions(formData.category);
+                    if (primaryOpts) {
+                      // For two-step categories, show sizes for all primary options
+                      const allSizes = new Set();
+                      primaryOpts.options.forEach(opt => {
+                        getSizeOptions(formData.category, opt).forEach(size => allSizes.add(size));
+                      });
+                      return Array.from(allSizes).map(size => (
+                        <option key={size} value={size}>{size}</option>
+                      ));
+                    } else {
+                      return getSizeOptions(formData.category).map(size => (
+                        <option key={size} value={size}>{size}</option>
+                      ));
+                    }
+                  })()}
                 </select>
                 <input
                   type="number"

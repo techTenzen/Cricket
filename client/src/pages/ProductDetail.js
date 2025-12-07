@@ -1,43 +1,75 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Star, ShoppingCart, Heart, Share2, Truck, ShieldCheck, RefreshCcw, ArrowLeft, Plus, Minus } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  Star,
+  ShoppingCart,
+  Heart,
+  Share2,
+  Truck,
+  RefreshCcw,
+  ArrowLeft,
+  Plus,
+  Minus,
+  Zap,
+  Ruler
+} from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
 import { fetchProduct, fetchProducts, addReview } from '../store/slices/productSlice';
 import { addToCart } from '../store/slices/cartSlice';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProductCard from '../components/ProductCard';
 import Footer from '../components/Footer';
+import './ProductDetail.css';
+import { toast } from 'react-hot-toast';
+import { getPrimaryOptions, getSizeOptions } from '../utils/sizeOptions';
+import { favoriteService } from '../services/favoriteService';
 
-// Placeholder for missing components
-const FavoriteButton = ({ productId }) => (
-  <button type="button" className="icon-button p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150">
-    <Heart className="icon-button__icon text-gray-600 dark:text-gray-300" size={24} />
+// --- Small reusable bits ---
+
+const FavoriteButton = ({ isFavorite, onToggle }) => (
+  <button
+    type="button"
+    className="icon-button"
+    aria-label={isFavorite ? 'Remove from wishlist' : 'Add to wishlist'}
+    onClick={onToggle}
+  >
+    <Heart
+      className={`icon-button__icon ${isFavorite ? 'icon-button__icon--active' : ''}`}
+      fill={isFavorite ? 'currentColor' : 'none'}
+    />
   </button>
 );
+
 const ShareButton = () => (
-    <button type="button" className="icon-button p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition duration-150">
-        <Share2 className="icon-button__icon text-gray-600 dark:text-gray-300" size={24} />
-    </button>
+  <button type="button" className="icon-button" aria-label="Share product">
+    <Share2 className="icon-button__icon" />
+  </button>
 );
+
 const ReviewStars = ({ rating }) => (
-    <div className="flex items-center">
-        {[...Array(5)].map((_, i) => (
-            <Star
-                key={i}
-                size={16}
-                className={`star-icon ${i < rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
-                fill={i < rating ? '#f59e0b' : 'none'}
-                strokeWidth={1.5}
-            />
-        ))}
-    </div>
+  <div className="product-page__stars">
+    {[...Array(5)].map((_, i) => (
+      <Star
+        key={i}
+        className={i < rating ? 'star-icon star-icon--filled' : 'star-icon'}
+        fill={i < rating ? 'currentColor' : 'none'}
+      />
+    ))}
+  </div>
 );
 
+// --- Fallback images ---
 
-const FALLBACK_IMAGE = 'https://via.placeholder.com/800x600?text=No+Image';
-const ERROR_IMAGE = 'https://via.placeholder.com/800x600?text=Image+Error';
-const THUMB_ERROR_IMAGE = 'https://via.placeholder.com/120x120?text=Error';
+const FALLBACK_IMAGE =
+  'https://via.placeholder.com/800x600?text=Cricket+Gear+Image';
+const ERROR_IMAGE =
+  'https://via.placeholder.com/800x600?text=Image+Error';
+const THUMB_ERROR_IMAGE =
+  'https://via.placeholder.com/120x120?text=Error';
+
+// ------------------------------------------------------------------
+// MAIN COMPONENT
+// ------------------------------------------------------------------
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -47,37 +79,32 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isImageLoading, setIsImageLoading] = useState(true);
-
+  const [selectedPrimary, setSelectedPrimary] = useState(''); // Handle type or Hand
   const [selectedSize, setSelectedSize] = useState('');
-  const [activeTab, setActiveTab] = useState('features');
-
+  const [activeTab, setActiveTab] = useState('specs');
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const { currentProduct: product, products, isLoading } = useAppSelector(
     (state) => state.products
   );
   const { isAuthenticated } = useAppSelector((state) => state.auth);
 
-  // --- Fetch Data ---
+  // Fetch product + a small set of related ones
   useEffect(() => {
     if (!id) return;
 
     dispatch(fetchProduct(id))
       .unwrap()
-      .catch(() => {
-        toast.error('Failed to load product details');
-      });
+      .catch(() => toast.error('Failed to load product details'));
 
-    // Fetch related products for the bottom section
     dispatch(fetchProducts({ limit: 12 }))
       .unwrap()
-      .catch(() => {
-        console.warn('Failed to fetch related products');
-      });
+      .catch(() => console.warn('Failed to fetch related products'));
   }, [dispatch, id]);
 
-  // --- Related Products Logic ---
   const relatedProducts = useMemo(() => {
     if (!product || !Array.isArray(products)) return [];
     return products
@@ -85,35 +112,61 @@ const ProductDetail = () => {
       .slice(0, 4);
   }, [product, products]);
 
-  // --- Add to Cart Handler ---
+  // ----------------------------------------------------------------
+  // Handlers
+  // ----------------------------------------------------------------
+
   const handleAddToCart = useCallback(async () => {
-    if (!id || !product || product.stock === 0) {
-      toast.error(product && product.stock === 0 ? 'Product is out of stock' : 'Invalid product');
+    if (!id || !product) {
+      toast.error('Invalid product');
       return;
     }
 
     if (!isAuthenticated) {
-      toast.error('Please login to add items to cart');
+      toast.error('Please login to add items to your bag');
       navigate('/login');
       return;
     }
 
-    // Check if size is required but not selected
-    if (product.sizeVariants && product.sizeVariants.length > 0 && !selectedSize) {
-        toast.error('Please select a size');
-        return;
+    // Check if primary selection is required
+    const primaryOptions = getPrimaryOptions(product.category);
+    if (primaryOptions && !selectedPrimary) {
+      toast.error(`Please select ${primaryOptions.label.toLowerCase()}`);
+      return;
+    }
+
+    // Check if size selection is required
+    const sizeOptions = getSizeOptions(product.category, selectedPrimary);
+    if (sizeOptions.length > 1 && !selectedSize) {
+      toast.error('Please select a size');
+      return;
+    }
+
+    const currentStock =
+      product?.sizeVariants?.find((v) => v.size === selectedSize)?.stock ??
+      product?.stock ??
+      0;
+
+    if (currentStock === 0) {
+      toast.error('Product / size is out of stock');
+      return;
     }
 
     try {
-      await dispatch(addToCart({ productId: id, quantity, size: selectedSize })).unwrap();
-      toast.success('Product added to cart!');
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to add product to cart');
+      await dispatch(
+        addToCart({
+          productId: id,
+          quantity,
+          primaryOption: selectedPrimary,
+          size: selectedSize
+        })
+      ).unwrap();
+      toast.success('Added to bag');
+    } catch {
+      toast.error('Failed to add product to bag');
     }
-  }, [dispatch, id, isAuthenticated, product, quantity, navigate, selectedSize]);
+  }, [dispatch, id, product, selectedPrimary, selectedSize, quantity, isAuthenticated, navigate]);
 
-  // --- Review Submission Handler ---
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
 
@@ -123,8 +176,7 @@ const ProductDetail = () => {
     }
 
     if (!isAuthenticated) {
-      toast.error('Please login to add a review');
-      navigate('/login');
+      toast.error('Please login to write a review');
       return;
     }
 
@@ -135,27 +187,27 @@ const ProductDetail = () => {
 
     try {
       await dispatch(addReview({ id, reviewData })).unwrap();
-      toast.success('Review added successfully!');
+      toast.success('Review added');
       setShowReviewForm(false);
       setReviewData({ rating: 5, comment: '' });
-      // Re-fetch product to update reviews
-      dispatch(fetchProduct(id)); 
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to add review. You might have already reviewed this product.');
+      dispatch(fetchProduct(id));
+    } catch {
+      toast.error('Failed to add review (maybe already reviewed?)');
     }
   };
 
-  // --- Quantity Control ---
   const handleQuantityChange = (delta) => {
     if (!product) return;
-    const stock = product.stock || 0;
-    const max = stock; // Max quantity is current stock
-    const next = Math.min(Math.max(1, quantity + delta), max);
+
+    const currentStock =
+      product.sizeVariants && selectedSize
+        ? product.sizeVariants.find((v) => v.size === selectedSize)?.stock ?? 0
+        : product.stock ?? 0;
+
+    const next = Math.min(Math.max(1, quantity + delta), currentStock || 1);
     setQuantity(next);
   };
 
-  // --- Image Error Handlers ---
   const handleMainImageError = (e) => {
     e.target.src = ERROR_IMAGE;
     setIsImageLoading(false);
@@ -164,16 +216,72 @@ const ProductDetail = () => {
   const handleThumbImageError = (e) => {
     e.target.src = THUMB_ERROR_IMAGE;
   };
-  
-  // Update image loading state when selected image changes
+
   useEffect(() => {
     setIsImageLoading(true);
   }, [selectedImage]);
 
-  // --- Loading/Error States ---
+  // 🔁 Load favorites for this product (using product._id, not URL id)
+  useEffect(() => {
+    if (!isAuthenticated || !product?._id) return;
+
+    let isMounted = true;
+
+    const loadFavorites = async () => {
+      try {
+        const response = await favoriteService.getFavorites();
+        const favs = response.data || [];
+        if (isMounted) {
+          setIsFavorite(favs.some((fav) => fav.product._id === product._id));
+        }
+      } catch (error) {
+        console.error('Failed to fetch favorites:', error);
+      }
+    };
+
+    loadFavorites();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, product?._id]);
+
+  const handleToggleFavorite = useCallback(async () => {
+    if (!isAuthenticated) {
+      toast.error('Please login to add to favorites');
+      navigate('/login');
+      return;
+    }
+
+    if (!product?._id) {
+      toast.error('Product not loaded correctly');
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await favoriteService.removeFromFavorites(product._id);
+        toast.success('Removed from favorites');
+      } else {
+        await favoriteService.addToFavorites(product._id);
+        toast.success('Added to favorites');
+      }
+
+      // Optimistically update UI
+      setIsFavorite((prev) => !prev);
+    } catch (error) {
+      console.error('Wishlist error:', error);
+      toast.error('Failed to update favorites');
+    }
+  }, [isFavorite, isAuthenticated, navigate, product]);
+
+  // ----------------------------------------------------------------
+  // Loading / error
+  // ----------------------------------------------------------------
+
   if (isLoading && !product) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="product-detail-loading">
         <LoadingSpinner />
       </div>
     );
@@ -181,501 +289,732 @@ const ProductDetail = () => {
 
   if (!id || !product) {
     return (
-      <div className="flex justify-center items-center min-h-[50vh] flex-col p-8">
-        <p className="text-xl text-red-500 font-semibold mb-4">Product not found or Invalid URL</p>
-        <button
+      <div className="product-detail-loading">
+        <div>
+          <p className="product-detail-error">
+            Product not found or invalid URL
+          </p>
+          <button
             type="button"
-            className="text-indigo-600 hover:text-indigo-800 flex items-center transition duration-150"
+            className="product-page__back-link"
             onClick={() => navigate('/products')}
-        >
-            <ArrowLeft className="w-5 h-5 mr-1" />
-            Go to Product List
-        </button>
+          >
+            <ArrowLeft size={18} />
+            Back to Gear
+          </button>
+        </div>
       </div>
     );
   }
 
-  // --- Derived State ---
+  // ----------------------------------------------------------------
+  // Derived values
+  // ----------------------------------------------------------------
+
   const mainImage =
     product.images && product.images.length > 0
       ? product.images[selectedImage] || product.images[0]
       : FALLBACK_IMAGE;
 
-  const hasStock = (product.stock || 0) > 0;
-  const roundedRating = product.rating ? Number(product.rating.toFixed(1)) : 0;
+  const primaryOptions = getPrimaryOptions(product.category);
+  const sizeOptions = getSizeOptions(product.category, selectedPrimary);
+  const sizeVariants = product.sizeVariants || [];
 
-  const hasOldPrice = product.oldPrice && product.oldPrice > product.price;
+  const productStock =
+    sizeVariants.length > 0 && selectedSize
+      ? sizeVariants.find((v) => v.size === selectedSize)?.stock ?? 0
+      : product.stock ?? 0;
+
+  const hasStock = (productStock ?? 0) > 0;
+  const roundedRating = product.rating ? Number(product.rating.toFixed(1)) : 0;
+  const hasOldPrice =
+    product.oldPrice && product.oldPrice > product.price;
+
   const discountPercent = hasOldPrice
-    ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
+    ? Math.round(
+        ((product.oldPrice - product.price) / product.oldPrice) * 100
+      )
     : null;
 
-  const maxQty = product.stock || 1;
+  const maxQty = productStock || 1;
+
+  // ----------------------------------------------------------------
+  // UI
+  // ----------------------------------------------------------------
 
   return (
     <>
-      <div className="product-page container mx-auto px-4 py-8 lg:py-12">
-        
-        {/* Back link */}
-        <button
-          type="button"
-          className="text-indigo-600 hover:text-indigo-800 flex items-center mb-6 transition duration-150 font-medium"
-          onClick={() => navigate('/products')}
-        >
-          <ArrowLeft className="w-5 h-5 mr-1" />
-          Back to Products
-        </button>
+      <div className="product-page">
+        <div className="product-page__shell">
+          <button
+            type="button"
+            className="product-page__back-link"
+            onClick={() => navigate('/products')}
+          >
+            <ArrowLeft size={18} />
+            Back to Gear
+          </button>
 
-        <div className="product-page__card p-4 sm:p-8 rounded-xl shadow-2xl">
-          
-          {/* Main Product Grid */}
-          <div className="product-page__grid grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-            
-            {/* Left: Images */}
-            <div className="product-page__media flex flex-col-reverse lg:flex-row gap-4">
-                
-                {/* Thumbnails */}
-                {product.images && product.images.length > 1 && (
-                    <div className="product-page__thumbnails flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-2 overflow-x-auto lg:overflow-y-auto max-h-[400px] pb-2">
-                        {product.images.map((img, idx) => (
-                            <button
-                                key={idx}
-                                type="button"
-                                className={`thumb-button w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-300 ${
-                                    selectedImage === idx ? 'border-indigo-600 ring-2 ring-indigo-300' : 'border-gray-200 hover:border-indigo-400 dark:border-gray-700 dark:hover:border-indigo-500'
-                                }`}
-                                onClick={() => {
-                                    setSelectedImage(idx);
-                                }}
-                            >
-                                <img
-                                    src={img}
-                                    alt={`${product.name} thumbnail ${idx + 1}`}
-                                    onError={handleThumbImageError}
-                                    className="w-full h-full object-cover"
-                                />
-                            </button>
-                        ))}
+          {/* MAIN CARD */}
+          <div className="product-page__card">
+            <div className="product-page__grid">
+              {/* LEFT – IMAGES */}
+              <div className="product-page__media">
+                <div className="product-page__main-image-wrapper">
+                  {isImageLoading && (
+                    <div className="product-page__image-skeleton">
+                      <span>Loading image…</span>
                     </div>
-                )}
-                
-                {/* Main Image */}
-                <div className="product-page__main-image-wrapper flex-grow relative aspect-square lg:aspect-auto">
-                    {isImageLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse">
-                            <span className="text-gray-500 dark:text-gray-400">Loading image...</span>
-                        </div>
-                    )}
-                    <img
-                        src={mainImage}
-                        alt={product.name}
-                        onError={handleMainImageError}
-                        onLoad={() => setIsImageLoading(false)}
-                        className={`product-page__main-image w-full h-full object-contain rounded-xl transition-opacity duration-500 ${
-                            isImageLoading ? 'opacity-0' : 'opacity-100'
-                        }`}
-                        style={{ maxHeight: '600px' }} // Set a max height for large screens
-                    />
+                  )}
+                  <img
+                    src={mainImage}
+                    alt={product.name}
+                    onError={handleMainImageError}
+                    onLoad={() => setIsImageLoading(false)}
+                    className={`product-page__main-image ${
+                      isImageLoading ? 'product-page__main-image--hidden' : ''
+                    }`}
+                  />
                 </div>
-            </div>
 
-            {/* Right: Info */}
-            <div className="product-page__info">
-              
-              {/* Category/Status */}
-              <div className="flex items-center space-x-2 mb-2">
-                {product.category && (
-                    <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">{product.category}</span>
-                )}
-                {!hasStock && (
-                    <span className="text-sm font-bold text-red-600 dark:text-red-400 border border-red-600 dark:border-red-400 px-2 py-0.5 rounded-full">Out of Stock</span>
-                )}
-              </div>
-
-              <h1 className="product-page__title text-3xl md:text-4xl font-extrabold mb-3 leading-tight">
-                {product.name}
-              </h1>
-
-              {/* Rating row */}
-              <div className="product-page__rating-row flex items-center space-x-3 mb-4 border-b pb-4 border-gray-200 dark:border-gray-700">
-                <ReviewStars rating={Math.round(roundedRating)} />
-                <span className="product-page__rating-score text-lg font-bold text-gray-800 dark:text-gray-200">
-                    {roundedRating > 0 ? roundedRating.toFixed(1) : '—'}
-                </span>
-                <span className="product-page__rating-count text-sm text-gray-500 dark:text-gray-400">
-                  ({product.numReviews || 0} reviews)
-                </span>
-                <button 
-                    onClick={() => setActiveTab('reviews')}
-                    className="text-indigo-600 text-sm hover:text-indigo-800 font-medium transition duration-150 ml-auto"
-                >
-                    Read All Reviews
-                </button>
-              </div>
-
-              {/* Price row */}
-              <div className="product-page__price-row flex items-baseline space-x-3 mb-6">
-                <span className="product-page__price text-4xl font-bold text-indigo-600">£{product.price.toFixed(2)}</span>
-                {hasOldPrice && (
-                  <>
-                    <span className="product-page__old-price text-xl line-through text-gray-500 dark:text-gray-400">
-                      £{product.oldPrice.toFixed(2)}
-                    </span>
-                    <span className="pill pill--discount bg-red-100 text-red-800 text-sm font-semibold px-3 py-1 rounded-full dark:bg-red-900 dark:text-red-300">
-                      Save {discountPercent}%
-                    </span>
-                  </>
-                )}
-              </div>
-              
-              {/* Description */}
-              {product.description && (
-                <p className="product-page__description text-gray-600 dark:text-gray-300 mb-6">
-                  {product.description}
-                </p>
-              )}
-
-              {/* Optional attributes */}
-              <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300 mb-6">
-                 {product.brand && <p><span className="font-semibold">Brand:</span> {product.brand}</p>}
-                 {product.modelRange && <p><span className="font-semibold">Model:</span> {product.modelRange}</p>}
-                 {product.size && <p><span className="font-semibold">Default Size:</span> {product.size}</p>}
-              </div>
-              
-              {/* Size Variants */}
-              {product.sizeVariants && product.sizeVariants.length > 0 && (
-                <div className="product-page__option-row mb-6">
-                  <span className="product-page__option-label text-md font-semibold text-gray-800 dark:text-gray-200 mb-2 block">Available Sizes</span>
-                  <div className="product-page__option-buttons flex flex-wrap gap-2">
-                    {product.sizeVariants.map((variant, index) => (
+                {product.images && product.images.length > 1 && (
+                  <div className="product-page__thumbnails">
+                    {product.images.map((img, idx) => (
                       <button
-                        key={index}
+                        key={idx}
                         type="button"
-                        className={`option-button px-4 py-2 text-sm font-medium rounded-full border transition-all duration-200 ${
-                          selectedSize === variant.size
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg'
-                            : variant.stock === 0 
-                                ? 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed dark:bg-gray-700 dark:border-gray-600 dark:text-gray-500'
-                                : 'bg-white text-gray-700 border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700'
+                        className={`thumb-button ${
+                          selectedImage === idx ? 'thumb-button--active' : ''
                         }`}
-                        onClick={() => setSelectedSize(variant.size)}
-                        disabled={variant.stock === 0}
+                        onClick={() => setSelectedImage(idx)}
                       >
-                        {variant.size}
+                        <img
+                          src={img}
+                          alt={`Thumbnail ${idx + 1}`}
+                          onError={handleThumbImageError}
+                          className="thumb-button__image"
+                        />
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Quantity + Add to Cart */}
-              <div className="product-page__cart-row flex flex-col sm:flex-row items-stretch sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                
-                {/* Quantity Control */}
-                <div className="product-page__qty-group flex items-center space-x-3 flex-shrink-0">
-                  <span className="product-page__qty-label text-sm font-semibold">Quantity:</span>
-                  <div className="qty-control flex items-center border border-gray-300 dark:border-gray-600 rounded-lg">
+              {/* RIGHT – DETAILS */}
+              <div className="product-page__info">
+                <div>
+                  {product.category && (
+                    <span className="pill pill--category">
+                      {product.category}
+                    </span>
+                  )}
+                  {hasOldPrice && discountPercent != null && (
+                    <span className="pill pill--discount">
+                      {discountPercent}% OFF
+                    </span>
+                  )}
+                </div>
+
+                <h1 className="product-page__title">{product.name}</h1>
+
+                <div className="product-page__rating-row">
+                  <ReviewStars rating={Math.round(roundedRating)} />
+                  <span className="product-page__rating-score">
+                    {roundedRating > 0 ? roundedRating.toFixed(1) : '—'}
+                  </span>
+                  <span className="product-page__rating-count">
+                    ({product.numReviews || 0} reviews)
+                  </span>
+                </div>
+
+                <div className="product-page__price-row">
+                  <span className="product-page__price">
+                    £{product.price.toFixed(2)}
+                  </span>
+                  {hasOldPrice && (
+                    <span className="product-page__old-price">
+                      £{product.oldPrice.toFixed(2)}
+                    </span>
+                  )}
+                  {!hasStock && (
+                    <span className="pill pill--stock">Out of stock</span>
+                  )}
+                </div>
+
+                {product.description && (
+                  <p className="product-page__description">
+                    {product.description}
+                  </p>
+                )}
+
+                {/* PRIMARY SELECTION (Handle Type / Hand) */}
+                {primaryOptions && (
+                  <div className="product-page__option-row">
+                    <span className="product-page__option-label">
+                      Select {primaryOptions.label}
+                    </span>
+                    <div className="product-page__option-buttons">
+                      {primaryOptions.options.map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className={`option-button ${
+                            selectedPrimary === option
+                              ? 'option-button--active'
+                              : ''
+                          }`}
+                          onClick={() => {
+                            setSelectedPrimary(option);
+                            setSelectedSize(''); // Reset size when primary changes
+                          }}
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* SIZE SELECTION */}
+                {sizeOptions.length > 0 && (!primaryOptions || selectedPrimary) && (
+                  <div className="product-page__option-row">
+                    <span className="product-page__option-label">
+                      Select Size
+                    </span>
+                    <div className="product-page__option-buttons">
+                      {sizeOptions.map((size) => {
+                        let isOutOfStock = false;
+
+                        if (sizeVariants.length > 0) {
+                          const sizeVariant = sizeVariants.find(v => v.size === size);
+                          isOutOfStock =
+                            !sizeVariant ||
+                            (sizeVariant.stock !== undefined && sizeVariant.stock === 0);
+                        }
+
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            className={`option-button ${
+                              selectedSize === size
+                                ? 'option-button--active'
+                                : ''
+                            } ${
+                              isOutOfStock
+                                ? 'option-button--disabled'
+                                : ''
+                            }`}
+                            onClick={() => setSelectedSize(size)}
+                            disabled={isOutOfStock}
+                          >
+                            {size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* QUANTITY + CTAS + INLINE SIZE GUIDE */}
+                <div className="product-page__cart-row">
+                  <div className="product-page__qty-group">
+                    <span className="product-page__qty-label">Quantity</span>
+                    <div className="qty-control">
+                      <button
+                        type="button"
+                        className="qty-control__btn"
+                        onClick={() => handleQuantityChange(-1)}
+                        disabled={!hasStock || quantity <= 1}
+                        aria-label="Decrease quantity"
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span className="qty-control__value">{quantity}</span>
+                      <button
+                        type="button"
+                        className="qty-control__btn"
+                        onClick={() => handleQuantityChange(1)}
+                        disabled={!hasStock || quantity >= maxQty}
+                        aria-label="Increase quantity"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="product-page__cta-row">
                     <button
                       type="button"
-                      className="qty-control__btn p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-l-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleQuantityChange(-1)}
-                      disabled={!hasStock || quantity <= 1}
-                      aria-label="Decrease quantity"
+                      className={`btn btn--primary ${
+                        !hasStock ? 'btn--disabled' : ''
+                      }`}
+                      disabled={!hasStock}
+                      onClick={handleAddToCart}
                     >
-                      <Minus size={18} />
+                      <ShoppingCart size={18} />
+                      {hasStock ? 'Add to Cart' : 'Out of Stock'}
                     </button>
-                    <span className="qty-control__value w-8 text-center font-medium">{quantity}</span>
-                    <button
-                      type="button"
-                      className="qty-control__btn p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-r-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={() => handleQuantityChange(1)}
-                      disabled={!hasStock || quantity >= maxQty}
-                      aria-label="Increase quantity"
-                    >
-                      <Plus size={18} />
-                    </button>
+
+                    <FavoriteButton
+                      isFavorite={isFavorite}
+                      onToggle={handleToggleFavorite}
+                    />
+
+                    {product.category === 'bats' && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSizeGuide(true)}
+                        title="Size Guide"
+                        className="icon-button"
+                        aria-label="Size Guide"
+                      >
+                        <Ruler className="icon-button__icon" />
+                      </button>
+                    )}
+
+                    <ShareButton />
+                  </div>
+
+                  {productStock <= 5 && productStock > 0 && (
+                    <p className="product-page__low-stock">
+                      ⚠ Only {productStock} left in stock!
+                    </p>
+                  )}
+                </div>
+
+                {/* BENEFITS */}
+                <div className="product-page__benefits">
+                  <div className="benefit-card">
+                    <Truck className="benefit-card__icon" />
+                    <div>
+                      <div className="benefit-card__title">
+                        Pro Fast Shipping
+                      </div>
+                      <div className="benefit-card__subtitle">
+                        Pan-India on cricket gear
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="benefit-card">
+                    <Zap className="benefit-card__icon" />
+                    <div>
+                      <div className="benefit-card__title">
+                        1 Year Bat Warranty
+                      </div>
+                      <div className="benefit-card__subtitle">
+                        On selected English willow bats
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="benefit-card">
+                    <RefreshCcw className="benefit-card__icon" />
+                    <div>
+                      <div className="benefit-card__title">
+                        30-Day Easy Returns
+                      </div>
+                      <div className="benefit-card__subtitle">
+                        Unused gear in original pack
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Add to Cart Button */}
-                <button
-                  type="button"
-                  className={`btn btn--primary flex-grow flex items-center justify-center py-3 px-6 rounded-lg font-bold text-base transition-colors duration-200 transform hover:scale-[1.01] ${
-                    hasStock
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/50'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                  disabled={!hasStock}
-                  onClick={handleAddToCart}
-                >
-                  <ShoppingCart className="btn__icon mr-2" size={20} />
-                  {hasStock ? 'Add to Cart' : 'Out of Stock'}
-                </button>
+                {/* TABS (Specs & Reviews) */}
+                <div className="product-page__tabs-wrapper">
+                  <div className="product-page__tabs">
+                    <div className="tab-nav">
+                      <button
+                        type="button"
+                        className={`tab-nav__item ${
+                          activeTab === 'specs'
+                            ? 'tab-nav__item--active'
+                            : ''
+                        }`}
+                        onClick={() => setActiveTab('specs')}
+                      >
+                        Specs & Features
+                      </button>
+                      <button
+                        type="button"
+                        className={`tab-nav__item ${
+                          activeTab === 'reviews'
+                            ? 'tab-nav__item--active'
+                            : ''
+                        }`}
+                        onClick={() => setActiveTab('reviews')}
+                      >
+                        Reviews ({product.numReviews || 0})
+                      </button>
+                    </div>
 
-                {/* Favorite & Share Icons */}
-                <div className="flex space-x-2 sm:space-x-3 justify-center sm:justify-start">
-                    <FavoriteButton productId={id} />
-                    <ShareButton />
+                    <div className="tab-panel">
+                      {/* SPECS TAB */}
+                      {activeTab === 'specs' && (
+                        <div className="tab-panel__content">
+                          {product.features &&
+                            product.features.length > 0 && (
+                              <div>
+                                <h3>Key Features</h3>
+                                <ul className="tab-list">
+                                  {product.features.map((feature, index) => (
+                                    <li key={index}>{feature}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                          {product.specifications &&
+                            Object.keys(product.specifications).some(
+                              (key) => product.specifications[key]
+                            ) && (
+                              <div style={{ marginTop: '1.25rem' }}>
+                                <h3>Technical Specifications</h3>
+                                <ul className="tab-list">
+                                  {Object.keys(
+                                    product.specifications
+                                  ).map(
+                                    (key) =>
+                                      product.specifications[key] && (
+                                        <li key={key}>
+                                          <strong>
+                                            {key
+                                              .replace(
+                                                /([A-Z])/g,
+                                                ' $1'
+                                              )
+                                              .trim()}
+                                            :
+                                          </strong>{' '}
+                                          {product.specifications[key]}
+                                        </li>
+                                      )
+                                  )}
+                                </ul>
+                              </div>
+                            )}
+
+                          {(!product.features ||
+                            product.features.length === 0) &&
+                            (!product.specifications ||
+                              Object.keys(product.specifications).length ===
+                                0) && (
+                              <p
+                                style={{
+                                  color: '#6b7280',
+                                  fontStyle: 'italic',
+                                  fontSize: '0.9rem'
+                                }}
+                              >
+                                No technical details provided for this
+                                product.
+                              </p>
+                            )}
+                        </div>
+                      )}
+
+                      {/* REVIEWS TAB */}
+                      {activeTab === 'reviews' && (
+                        <div className="tab-panel__content">
+                          <div className="tab-reviews-header">
+                            <h3>Customer Reviews</h3>
+                            {isAuthenticated && (
+                              <button
+                                type="button"
+                                className="btn btn--primary"
+                                style={{ flex: '0 0 auto', boxShadow: 'none' }}
+                                onClick={() =>
+                                  setShowReviewForm(
+                                    (prev) => !prev
+                                  )
+                                }
+                              >
+                                {showReviewForm
+                                  ? 'Cancel'
+                                  : 'Write Review'}
+                              </button>
+                            )}
+                          </div>
+
+                          {showReviewForm && isAuthenticated && (
+                            <form
+                              onSubmit={handleReviewSubmit}
+                              className="product-detail__review-form"
+                            >
+                              <div className="product-detail__form-group">
+                                <label
+                                  className="product-detail__form-label"
+                                  htmlFor="rating-select"
+                                >
+                                  Rating
+                                </label>
+                                <select
+                                  id="rating-select"
+                                  value={reviewData.rating}
+                                  onChange={(e) =>
+                                    setReviewData({
+                                      ...reviewData,
+                                      rating: parseInt(
+                                        e.target.value,
+                                        10
+                                      )
+                                    })
+                                  }
+                                  className="product-detail__form-select"
+                                >
+                                  {[5, 4, 3, 2, 1].map((num) => (
+                                    <option key={num} value={num}>
+                                      {num} Star
+                                      {num > 1 ? 's' : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div className="product-detail__form-group">
+                                <label
+                                  className="product-detail__form-label"
+                                  htmlFor="review-comment"
+                                >
+                                  Comment
+                                </label>
+                                <textarea
+                                  id="review-comment"
+                                  value={reviewData.comment}
+                                  onChange={(e) =>
+                                    setReviewData({
+                                      ...reviewData,
+                                      comment: e.target.value
+                                    })
+                                  }
+                                  className="product-detail__form-textarea"
+                                  required
+                                  minLength={5}
+                                  maxLength={1000}
+                                  placeholder="Share how this gear performs in the nets or on match day…"
+                                />
+                              </div>
+
+                              <div className="product-detail__form-actions">
+                                <button
+                                  type="submit"
+                                  className="btn btn--primary"
+                                >
+                                  Submit Review
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  style={{
+                                    background:
+                                      'linear-gradient(135deg,#e5e7eb,#d1d5db)',
+                                    color: '#374151'
+                                  }}
+                                  onClick={() =>
+                                    setShowReviewForm(false)
+                                  }
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </form>
+                          )}
+
+                          {product.reviews &&
+                          product.reviews.length > 0 ? (
+                            <div className="product-detail__reviews-list">
+                              {product.reviews.map((review, index) => (
+                                <div
+                                  key={review._id || index}
+                                  className="product-detail__review-card"
+                                >
+                                  <div className="product-detail__review-header">
+                                    <div className="product-detail__review-user">
+                                      <span className="product-detail__review-name">
+                                        {review.name ||
+                                          'Anonymous Cricketer'}
+                                      </span>
+                                      <ReviewStars
+                                        rating={review.rating}
+                                      />
+                                    </div>
+                                    {review.createdAt && (
+                                      <span className="product-detail__review-date">
+                                        {new Date(
+                                          review.createdAt
+                                        ).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="product-detail__review-comment">
+                                    {review.comment}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p
+                              style={{
+                                color: '#6b7280',
+                                fontStyle: 'italic',
+                                fontSize: '0.9rem'
+                              }}
+                            >
+                              No reviews yet. Be the first to share
+                              your match experience with this gear!
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Low Stock Alert */}
-              {product.stock <= 5 && product.stock > 0 && (
-                <p className="low-stock text-red-500 font-semibold text-sm mb-6 animate-pulse">
-                    ⚠️ Only {product.stock} left in stock! Order soon.
-                </p>
-              )}
-
-              {/* Feature strip */}
-              <div className="product-page__benefits grid grid-cols-3 gap-4 border-t pt-6 border-gray-200 dark:border-gray-700">
-                <div className="benefit-card text-center p-2">
-                  <Truck className="benefit-card__icon w-6 h-6 mx-auto text-indigo-600 mb-1" />
-                  <div className="benefit-card__title text-sm font-semibold">Free Shipping</div>
-                  <div className="benefit-card__subtitle text-xs text-gray-500 dark:text-gray-400">Orders £100+</div>
-                </div>
-                <div className="benefit-card text-center p-2">
-                  <ShieldCheck className="benefit-card__icon w-6 h-6 mx-auto text-indigo-600 mb-1" />
-                  <div className="benefit-card__title text-sm font-semibold">12 Months</div>
-                  <div className="benefit-card__subtitle text-xs text-gray-500 dark:text-gray-400">Warranty Included</div>
-                </div>
-                <div className="benefit-card text-center p-2">
-                  <RefreshCcw className="benefit-card__icon w-6 h-6 mx-auto text-indigo-600 mb-1" />
-                  <div className="benefit-card__title text-sm font-semibold">30 Days</div>
-                  <div className="benefit-card__subtitle text-xs text-gray-500 dark:text-gray-400">Easy Returns</div>
-                </div>
-              </div>
-
             </div>
           </div>
 
-          {/* Tabs Section */}
-          <div className="product-page__tabs mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
-            <div className="tab-nav flex border-b border-gray-200 dark:border-gray-700 mb-6">
+          {/* RELATED PRODUCTS */}
+          {relatedProducts.length > 0 && (
+            <section className="product-page__related">
+              <h3 className="product-page__related-title">
+                You Might Also Like
+              </h3>
+              <div className="product-detail__related-grid">
+                {relatedProducts.map((rp) => (
+                  <ProductCard key={rp._id} product={rp} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      <Footer />
+
+      {/* Size Guide Modal */}
+      {showSizeGuide && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={() => setShowSizeGuide(false)}
+        >
+          <div 
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: '12px',
+              padding: '32px',
+              maxWidth: '700px',
+              width: '100%',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>Cricket Bat Size Guide</h2>
               <button
-                type="button"
-                className={`tab-nav__item px-4 py-3 text-lg font-semibold transition-colors duration-200 ${
-                  activeTab === 'features' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
-                onClick={() => setActiveTab('features')}
+                onClick={() => setShowSizeGuide(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '28px',
+                  cursor: 'pointer',
+                  color: '#6b7280',
+                  lineHeight: 1,
+                  padding: '0 4px'
+                }}
               >
-                Features & Specs
-              </button>
-              <button
-                type="button"
-                className={`tab-nav__item px-4 py-3 text-lg font-semibold transition-colors duration-200 ${
-                  activeTab === 'reviews' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-                }`}
-                onClick={() => setActiveTab('reviews')}
-              >
-                Reviews ({product.numReviews || 0})
+                ×
               </button>
             </div>
+            
+            <p style={{ color: '#6b7280', marginBottom: '24px', fontSize: '14px' }}>
+              Choose the right bat size based on the player's age and height for optimal performance.
+            </p>
 
-            <div className="tab-panel p-4">
-              {/* --- Features & Specs Tab --- */}
-              {activeTab === 'features' && (
-                <div className="tab-panel__content space-y-8">
-                  
-                  {/* Features Section */}
-                  {product.features && product.features.length > 0 && (
-                    <div className="features-section">
-                      <h3 className="text-2xl font-bold mb-4">Key Features</h3>
-                      <ul className="tab-list list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300 pl-4">
-                        {product.features.map((feature, index) => (
-                          <li key={`feature-${index}`} className="text-base">{feature}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  
-                  {/* Specifications Section */}
-                  {product.specifications && Object.keys(product.specifications).some(key => product.specifications[key]) && (
-                    <div className="specifications-section">
-                      <h3 className="text-2xl font-bold mb-4">Specifications</h3>
-                      <div className="tab-list specs-list grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-                        {Object.keys(product.specifications).map(key => 
-                          product.specifications[key] && (
-                            <div key={`spec-${key}`} className="flex justify-between items-start border-b border-gray-100 dark:border-gray-700 pb-2">
-                              <strong className="font-medium text-gray-600 dark:text-gray-400 w-1/3 pr-2 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</strong> 
-                              <span className="text-gray-900 dark:text-gray-100 w-2/3 text-right">{product.specifications[key]}</span>
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {(!product.features || product.features.length === 0) && 
-                    (!product.specifications || !Object.keys(product.specifications).some(key => product.specifications[key])) && (
-                    <p className="text-gray-500 dark:text-gray-400">No detailed features or specifications available for this product yet.</p>
-                  )}
-                </div>
-              )}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: '#111827' }}>Size</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: '#111827' }}>Age Range</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: '#111827' }}>Height Range</th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: '#111827' }}>Bat Length</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Size 1</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>4-5 years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>3'5" - 3'9"</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>24" - 26"</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Size 2</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>5-6 years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>3'9" - 4'1"</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>26" - 27"</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Size 3</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>6-7 years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>4'1" - 4'4"</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>27" - 28"</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Size 4</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>7-8 years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>4'4" - 4'7"</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>28" - 29"</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Size 5</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>8-9 years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>4'7" - 4'10"</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>29" - 30"</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Size 6 (Harrow)</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>9-11 years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>4'10" - 5'2"</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>30" - 31"</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Short Handle (SH)</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>11-14 years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>5'2" - 5'6"</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>31" - 32"</td>
+                </tr>
+                <tr style={{ backgroundColor: '#f9fafb' }}>
+                  <td style={{ padding: '12px', fontWeight: '600', color: '#111827' }}>Long Handle (LH)</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>14+ years</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>5'6"+</td>
+                  <td style={{ padding: '12px', color: '#374151' }}>33" - 34"</td>
+                </tr>
+              </tbody>
+            </table>
 
-              {/* --- Reviews Tab --- */}
-              {activeTab === 'reviews' && (
-                <div className="tab-panel__content">
-                  <div className="tab-reviews-header flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold">Customer Reviews</h3>
-                    {isAuthenticated && (
-                      <button
-                        type="button"
-                        className="btn bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 px-4 rounded-lg transition duration-150"
-                        onClick={() => setShowReviewForm((prev) => !prev)}
-                      >
-                        {showReviewForm ? 'Cancel Review' : 'Write a Review'}
-                      </button>
-                    )}
-                  </div>
-
-                  {!isAuthenticated && (
-                    <p className="product-detail__login-hint bg-yellow-50 dark:bg-yellow-900/50 p-3 rounded-lg border border-yellow-200 dark:border-yellow-700 text-sm text-yellow-800 dark:text-yellow-200 mb-6">
-                      <button
-                        type="button"
-                        className="font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
-                        onClick={() => navigate('/login')}
-                      >
-                        Login
-                      </button>{' '}
-                      to write a review and see full details.
-                    </p>
-                  )}
-
-                  {/* Review Submission Form */}
-                  {showReviewForm && isAuthenticated && (
-                    <form
-                      onSubmit={handleReviewSubmit}
-                      className="product-detail__review-form p-6 mb-8 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-700/50"
-                    >
-                      <h4 className="text-xl font-semibold mb-4">Submit Your Review</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="product-detail__form-group">
-                          <label
-                            className="product-detail__form-label block text-sm font-medium mb-1"
-                            htmlFor="rating-select"
-                          >
-                            Overall Rating
-                          </label>
-                          <select
-                            id="rating-select"
-                            value={reviewData.rating}
-                            onChange={(e) =>
-                              setReviewData({
-                                ...reviewData,
-                                rating: parseInt(e.target.value, 10),
-                              })
-                            }
-                            className="product-detail__form-select w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800"
-                          >
-                            {[5, 4, 3, 2, 1].map((num) => (
-                              <option key={num} value={num}>
-                                {num} Star{num > 1 ? 's' : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="product-detail__form-group mt-4">
-                        <label
-                          className="product-detail__form-label block text-sm font-medium mb-1"
-                          htmlFor="review-comment"
-                        >
-                          Comment
-                        </label>
-                        <textarea
-                          id="review-comment"
-                          value={reviewData.comment}
-                          onChange={(e) =>
-                            setReviewData({
-                              ...reviewData,
-                              comment: e.target.value,
-                            })
-                          }
-                          className="product-detail__form-textarea w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 resize-y"
-                          rows={4}
-                          required
-                          minLength={5}
-                          maxLength={1000}
-                          placeholder="Share your thoughts on the product..."
-                        />
-                        <p className="product-detail__form-helper text-xs text-gray-500 mt-1">
-                          Between 5 and 1000 characters.
-                        </p>
-                      </div>
-
-                      <div className="product-detail__form-actions mt-4 flex space-x-3">
-                        <button
-                          type="submit"
-                          className="btn bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-150"
-                        >
-                          Submit Review
-                        </button>
-                        <button
-                          type="button"
-                          className="btn bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-150 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
-                          onClick={() => setShowReviewForm(false)}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  {/* Reviews List */}
-                  {product.reviews && product.reviews.length > 0 ? (
-                    <div className="product-detail__reviews-list space-y-6">
-                      {product.reviews.map((review, index) => (
-                        <article
-                          key={review._id || index}
-                          className="product-detail__review-card p-4 border border-gray-100 dark:border-gray-700 rounded-lg shadow-sm dark:bg-gray-800/50"
-                        >
-                          <div className="product-detail__review-header flex justify-between items-center mb-2">
-                            <div className="product-detail__review-user flex items-center space-x-3">
-                              <span className="product-detail__review-name font-bold text-lg">
-                                {review.name || 'Anonymous User'}
-                              </span>
-                              <ReviewStars rating={review.rating} />
-                            </div>
-                            {review.createdAt && (
-                              <span className="product-detail__review-date text-xs text-gray-500 dark:text-gray-400">
-                                {new Date(review.createdAt).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                          <p className="product-detail__review-comment text-gray-700 dark:text-gray-300">
-                            {review.comment}
-                          </p>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="product-detail__no-reviews text-gray-500 dark:text-gray-400 italic">
-                      No reviews yet. Be the first to review this product!
-                    </p>
-                  )}
-                </div>
-              )}
+            <div style={{ marginTop: '24px', padding: '16px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: '#1e40af', lineHeight: '1.6' }}>
+                <strong>Tip:</strong> When in doubt, choose a slightly lighter bat. It's easier to control and helps develop proper technique.
+              </p>
             </div>
           </div>
         </div>
-
-        {/* Related products */}
-        {relatedProducts.length > 0 && (
-          <section className="product-page__related mt-16">
-            <h3 className="product-page__related-title text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">
-              You Might Also Like
-            </h3>
-            <div className="product-detail__related-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-              {relatedProducts.map((rp) => (
-                <ProductCard key={rp._id} product={rp} />
-              ))}
-            </div>
-          </section>
-        )}
-      </div>
-      
-      {/* Assuming Footer is defined elsewhere */}
-      <Footer />
+      )}
     </>
   );
 };
